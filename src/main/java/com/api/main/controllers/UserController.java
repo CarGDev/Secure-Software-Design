@@ -6,7 +6,6 @@ import com.api.main.dto.ErrorResponse;
 import com.api.main.dto.UserResponse;
 import com.api.main.entity.User;
 import com.api.main.services.AuthService;
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.util.Collections;
 import java.util.Map;
@@ -53,11 +52,22 @@ public class UserController {
 
   @PreAuthorize("hasRole('ADMIN')")
   @PostMapping("/create")
-  public ResponseEntity<?> createUser(@Valid @RequestBody CreateUserRequest request) {
+  public ResponseEntity<?> createUser(
+      @Valid @RequestBody CreateUserRequest request, Authentication authentication) {
     try {
+      Authentication authenticationContext = SecurityContextHolder.getContext().getAuthentication();
+      if (authenticationContext == null && !authenticationContext.isAuthenticated()) {
+        return ResponseEntity.status(401)
+            .body(new ErrorResponse(Constants.ERROR, Constants.UNAUTHORIZED_MESSAGE));
+      }
+      String username = authentication.getName();
       User user =
           authService.registerUser(
-              request.getUsername(), request.getEmail(), request.getPassword(), request.getRole());
+              request.getUsername(),
+              request.getEmail(),
+              request.getPassword(),
+              request.getRole(),
+              username);
       UserResponse response =
           new UserResponse(
               user.getId(),
@@ -71,12 +81,12 @@ public class UserController {
   }
 
   @PostMapping("/logout")
-  public ResponseEntity<?> logout(HttpServletRequest request) {
+  public ResponseEntity<?> logout() {
     try {
-      String authHeader = request.getHeader("Authorization");
-      if (authHeader != null && authHeader.startsWith("Bearer ")) {
-        String token = authHeader.substring(7);
-        authService.logout(token);
+      Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+      if (authentication != null && authentication.isAuthenticated()) {
+        String username = authentication.getName();
+        authService.logoutByUsername(username);
       }
       return ResponseEntity.ok(
           Map.of(

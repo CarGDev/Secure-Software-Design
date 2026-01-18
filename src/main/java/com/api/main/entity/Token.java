@@ -155,4 +155,8 @@ public class Token {
   public void setRevoked(boolean revoked) {
     this.revoked = revoked;
   }
+
+  public Object getRevoked() {
+    return this.revoked;
+  }
 }

@@ -51,6 +51,13 @@ public class AuthService {
     this.authenticationManager = authenticationManager;
   }
 
+  public boolean isTokenRevokedForUser(String username) {
+    return tokenRepository
+        .findTopByUsernameOrderByExpiresAtDesc(username)
+        .map(Token::isRevoked)
+        .orElse(true);
+  }
+
   @Transactional
   public LoginResponse authenticate(LoginRequest request) {
     try {
@@ -78,7 +85,9 @@ public class AuthService {
   private String generateToken() {
     byte[] randomBytes = new byte[32];
     new java.security.SecureRandom().nextBytes(randomBytes);
-    return UUID.randomUUID().toString() + "-" + Base64.getUrlEncoder().withoutPadding().encodeToString(randomBytes);
+    return UUID.randomUUID().toString()
+        + "-"
+        + Base64.getUrlEncoder().withoutPadding().encodeToString(randomBytes);
   }
 
   public UserResponse getCurrentUser(String username) {
@@ -86,6 +95,10 @@ public class AuthService {
         userRepository
             .findByUsername(username)
             .orElseThrow(() -> new RuntimeException("User not found"));
+
+    if (isTokenRevokedForUser(username)) {
+      throw new RuntimeException("Token is revoked");
+    }
 
     return new UserResponse(
         user.getId(),
@@ -95,7 +108,11 @@ public class AuthService {
   }
 
   @Transactional
-  public User registerUser(String username, String email, String password, String role) {
+  public User registerUser(
+      String username, String email, String password, String role, String createdBy) {
+    if (isTokenRevokedForUser(createdBy)) {
+      throw new RuntimeException("Token is revoked");
+    }
     if (userRepository.existsByUsername(username)) {
       throw new RuntimeException("Username already exists");
     }
@@ -122,6 +139,11 @@ public class AuthService {
               t.setRevoked(true);
               tokenRepository.save(t);
             });
+  }
+
+  @Transactional
+  public void logoutByUsername(String username) {
+    tokenRepository.revokeAllUserTokens(username);
   }
 
   public boolean isTokenValid(String token) {

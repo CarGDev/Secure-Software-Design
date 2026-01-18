@@ -6,6 +6,7 @@ import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 /*
@@ -40,13 +41,21 @@ public interface TokenRepository extends JpaRepository<Token, Long> {
   Optional<Token> findByTokenAndRevokedFalse(String token);
 
   /*
+   * Find the most recent token for a given username.
+   * @param username The username associated with the token
+   * @return Optional containing the most recent Token if found, else empty
+   *
+   */
+  Optional<Token> findTopByUsernameOrderByExpiresAtDesc(String username);
+
+  /*
    * Revoke all tokens associated with a specific username.
    * @param username The username whose tokens are to be revoked
    *
    */
-  @Modifying
+  @Modifying(clearAutomatically = true, flushAutomatically = true)
   @Query(Constants.ADDING_TOKEN_QUERY)
-  void revokeAllUserTokens(String username);
+  void revokeAllUserTokens(@Param("username") String username);
 
   /*
    * Delete all expired tokens from the database.
