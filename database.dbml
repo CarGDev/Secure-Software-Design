@@ -1,0 +1,40 @@
+// Database schema for Secure Software Design API
+// Use https://dbml.dbdiagram.io to visualize
+
+Project secure_software_design {
+  database_type: 'PostgreSQL'
+  Note: 'Secure API with JWT Authentication'
+}
+
+Table users {
+  id bigint [pk, increment]
+  username varchar(50) [not null, unique, note: 'User login name (3-50 characters)']
+  email varchar(255) [not null, unique, note: 'User email address']
+  password_hash varchar(255) [not null, note: 'BCrypt hashed password']
+  role varchar(50) [not null, note: 'User role (e.g., USER, ADMIN)']
+  enabled boolean [not null, default: true, note: 'Account active status']
+
+  indexes {
+    username [unique]
+    email [unique]
+  }
+}
+
+Table tokens {
+  id bigint [pk, increment]
+  token varchar(500) [not null, unique, note: 'JWT token string']
+  username varchar(50) [not null, note: 'Username associated with token']
+  created_at timestamp [not null, note: 'Token creation timestamp']
+  expires_at timestamp [not null, note: 'Token expiration timestamp']
+  revoked boolean [not null, default: false, note: 'Token revocation status']
+
+  indexes {
+    token [unique]
+    username
+    (username, revoked)
+  }
+}
+
+// Relationships
+// Token belongs to user
+Ref: tokens.username > users.username
